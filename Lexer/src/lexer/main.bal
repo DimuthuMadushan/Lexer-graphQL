@@ -4,7 +4,7 @@ import ballerina/lang.'float as floats;
 import ballerina/stringutils;
 
 public function main() {
-    table<Token> t = getTokens("query mutation SUBSCRIPTION get($id:ID,$dir:Boolean!){
+    table<Token>|string t = getTokens("query mutation SUBSCRIPTION get($id:ID,$dir:Boolean!){
                                     person(personID: \"3.3\") {
                                         name
                                         gender
@@ -33,19 +33,77 @@ type Token record {
     int startIndex;
 };
 
-function getTokens(string input) returns table<Token> {
+
+function getTokens(string input) returns table<Token> | string {
     string str = input.trim();
     var charList = stringutils:split(str, "");
     table<Token> tokenTable = table {
         {startIndex, token, tokenType, lineNum, columnNum},
         []
     };
-    int[] lineNumbIndex = [];
-    var [i, j, k] = getPunctuationTokens(tokenTable,charList,lineNumbIndex);
-    tokenTable = getStringTokens(i, j, k);
-    var sortedTbToken = tableSort(tokenTable);
-    printToken(sortedTbToken);
-    return tokenTable;
+    int[] newLineIndexes = [];
+    string[] unexpectedTokens = 'array:filter(charList, isUnexpectedToken);
+    if (unexpectedTokens.length() == 0) {
+        var [i, j, k] = getPunctuationTokens(tokenTable,charList,newLineIndexes);
+        tokenTable = getStringTokens(i, j, k);
+        var sortedTbToken = tableSort(tokenTable);
+        printToken(sortedTbToken);
+        return tokenTable;
+    } else {
+        newLineIndexes = getNewLineIndexes(charList);
+        string invalidToken = unexpectedTokens[0];
+        var i = 'array:indexOf(charList, invalidToken);
+        string err = "error.: invalid token found";
+        if (i is int) {
+            err = getError(newLineIndexes, invalidToken, i);
+        }
+        return err;
+    }
+}
+
+function isUnexpectedToken(string char) returns boolean {
+    boolean isString = true;
+    string[] validCharList = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "!", "$", "(", ")", ":", ".", "=", "@", "[", "]", "{", "|", "}", " ", "\n", "\"", ",", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    foreach var item in validCharList {
+        if (item == char.toLowerAscii()) {
+            isString = false;
+            break;
+        }
+    }
+    return isString;
+}
+
+function getNewLineIndexes(string[] charList) returns int[] {
+    string[] tempCharList = charList;
+    int[] indexes = [];
+    foreach var item in tempCharList {
+        match item {
+            "\n" => {
+                var i = array:indexOf(tempCharList, "\n");
+                if (i is int) {
+                    indexes.push(i);
+                    tempCharList[i] = " ";
+                }
+            }
+        }
+    }
+    return indexes;
+}
+
+function getError(int[] newLineIndexes, string token, int tokenIndex) returns string {
+    int columnNum = tokenIndex;
+    int lineNum = 1;
+    while (newLineIndexes.length() > lineNum) {
+        if (newLineIndexes[lineNum - 1] < tokenIndex) {
+            lineNum += 1;
+        } else {
+            columnNum = tokenIndex - newLineIndexes[lineNum - 2];
+            break;
+        }
+    }
+    string err = io:sprintf("error:.::Unexpected token \"%s\" found at (%s,%s)", token, lineNum, columnNum);
+    io:println(err);
+    return err;
 }
 
 function getPunctuationTokens(table<Token> tokenTable, string[] charList, int[] newLineIndexes) returns ([table<Token>, string[], int[]]) {
