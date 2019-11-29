@@ -186,7 +186,7 @@ function getPunctuationTokens(table<Token> tokenTable, string[] charList, int[] 
                 }
             }
             "." => {
-                var i = 'array:indexOf(charList, "...");
+                var i = 'array:indexOf(charList, ".");
                 if (i is int) {
                     indexes.push(i);
                     charList[i] = " ";
