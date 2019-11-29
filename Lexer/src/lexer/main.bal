@@ -109,6 +109,7 @@ function getError(int[] newLineIndexes, string token, int tokenIndex) returns st
 function getPunctuationTokens(table<Token> tokenTable, string[] charList, int[] newLineIndexes) returns ([table<Token>, string[], int[]]) {
     int lineNumber = 1;
     int columnNumber = 0;
+    int[] indexes = [];
     foreach var char in charList {
         columnNumber = columnNumber + 1;
         match char {
@@ -184,16 +185,22 @@ function getPunctuationTokens(table<Token> tokenTable, string[] charList, int[] 
 
                 }
             }
-            "..." => {
+            "." => {
                 var i = 'array:indexOf(charList, "...");
                 if (i is int) {
+                    indexes.push(i);
                     charList[i] = " ";
-                    var err = addToTable(tokenTable, lineNumber, columnNumber, "...", "punctuation", i);
-                    if (err != ()) {
-                        io:println(err.toString());
-                        break;
+                    if(indexes.length()==3){
+                        if((indexes[1]-indexes[0]==1) && (indexes[2]-indexes[1]==1)){
+                            var err = addToTable(tokenTable, lineNumber, columnNumber-2, "...", "punctuation", i-2);
+                            indexes = [];
+                            if (err != ()) {
+                                io:println(err.toString());
+                                break;
+                            }
+                        }
                     }
-
+                    
                 }
             }
             ":" => {
